@@ -3,20 +3,12 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26730.10
 MinimumVisualStudioVersion = 10.0.40219.1
-
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "CurrencyConverter", "CurrencyConverter\CurrencyConverter.fsproj", "{F44F097F-477C-428F-BA2E-F51AAC904F71}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "CurrencyConverter", "CurrencyConverter\CurrencyConverter.fsproj", "{F44F097F-477C-428F-BA2E-F51AAC904F71}"
 EndProject
-
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "CurrencyConverter.Android", "CurrencyConverter.Android\CurrencyConverter.Android.fsproj", "{A0F9075E-5D9A-4AC7-AD87-AD1F0B359FF1}"
 EndProject
-
-
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "CurrencyConverter.iOS", "CurrencyConverter.iOS\CurrencyConverter.iOS.fsproj", "{8B5CF213-D07F-42EA-BEE1-47E373C0B77B}"
 EndProject
-
-
-
-
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Ad-Hoc|Any CPU = Ad-Hoc|Any CPU

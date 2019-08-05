@@ -1,111 +1,83 @@
-﻿// Copyright 2018-2019 Fabulous contributors. See LICENSE.md for license.
-namespace CurrencyConverter
+﻿namespace CurrencyConverter
 
-open System.Diagnostics
 open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
 
-module App = 
-    type Model = 
-      { Count : int
-        Step : int
-        TimerOn: bool }
+module App =
+    type Currencies = FSharp.Data.XmlProvider<"http://www.cbr.ru/scripts/XML_daily.asp", Encoding="1251">
 
-    type Msg = 
-        | Increment 
-        | Decrement 
-        | Reset
-        | SetStep of int
-        | TimerToggled of bool
-        | TimedTick
+    type Model =
+      { currencies : Currencies.Valute []
+        fromCurrency : Currencies.Valute option
+        toCurrency : Currencies.Valute option
+        amount : string
+        convertedAmount : string }
 
-    let initModel = { Count = 0; Step = 1; TimerOn=false }
+    type Msg =
+        | GetCurrencies of Choice<Currencies.ValCurs, exn>
+        | FromChanged of int
+        | ToChanged of int
+        | AmountChanged of string
+        | Convert
 
-    let init () = initModel, Cmd.none
-
-    let timerCmd =
-        async { do! Async.Sleep 200
-                return TimedTick }
-        |> Cmd.ofAsyncMsg
+    let init() =
+        { currencies = [||]; fromCurrency = None; toCurrency = None; amount = ""; convertedAmount = "" },
+        Currencies.AsyncLoad("http://www.cbr.ru/scripts/XML_daily.asp") |> (Async.Catch >> Cmd.ofAsyncMsg >> Cmd.map GetCurrencies)
 
     let update msg model =
         match msg with
-        | Increment -> { model with Count = model.Count + model.Step }, Cmd.none
-        | Decrement -> { model with Count = model.Count - model.Step }, Cmd.none
-        | Reset -> init ()
-        | SetStep n -> { model with Step = n }, Cmd.none
-        | TimerToggled on -> { model with TimerOn = on }, (if on then timerCmd else Cmd.none)
-        | TimedTick -> 
-            if model.TimerOn then 
-                { model with Count = model.Count + model.Step }, timerCmd
-            else 
-                model, Cmd.none
+        | GetCurrencies(Choice1Of2 x) -> { model with currencies = x.Valutes }, Cmd.none
+        | FromChanged x -> { model with fromCurrency = model.currencies |> Array.tryItem x }, Cmd.none
+        | ToChanged x -> { model with toCurrency = model.currencies |> Array.tryItem x }, Cmd.none
+        | AmountChanged x -> { model with amount = x }, Cmd.none
+        | Convert ->
+            let convertedAmount =
+                (model.fromCurrency, model.toCurrency, try Some(float model.amount) with _ -> None)
+                |||> Option.map3 (fun src dst amount -> string <| amount * (float src.Value / float dst.Value) * (float dst.Nominal / float src.Nominal))
+            { model with convertedAmount = Option.defaultValue "" convertedAmount }, Cmd.none
+        | _ -> model, Cmd.none
 
-    let view (model: Model) dispatch =
+    let view (model : Model) dispatch =
+        let viewCurrentyPicker target f =
+            View.Picker (
+                title = sprintf "Select '%s' currency:" target,
+                itemsSource = (model.currencies |> Array.map (fun x -> sprintf "%s (%s)" x.Name x.CharCode)),
+                selectedIndexChanged = fun (i, _) -> dispatch (f i))
         View.ContentPage(
-          content = View.StackLayout(padding = 20.0, verticalOptions = LayoutOptions.Center,
-            children = [ 
-                View.Label(text = sprintf "%d" model.Count, horizontalOptions = LayoutOptions.Center, widthRequest=200.0, horizontalTextAlignment=TextAlignment.Center)
-                View.Button(text = "Increment", command = (fun () -> dispatch Increment), horizontalOptions = LayoutOptions.Center)
-                View.Button(text = "Decrement", command = (fun () -> dispatch Decrement), horizontalOptions = LayoutOptions.Center)
-                View.Label(text = "Timer", horizontalOptions = LayoutOptions.Center)
-                View.Switch(isToggled = model.TimerOn, toggled = (fun on -> dispatch (TimerToggled on.Value)), horizontalOptions = LayoutOptions.Center)
-                View.Slider(minimumMaximum = (0.0, 10.0), value = double model.Step, valueChanged = (fun args -> dispatch (SetStep (int (args.NewValue + 0.5)))), horizontalOptions = LayoutOptions.FillAndExpand)
-                View.Label(text = sprintf "Step size: %d" model.Step, horizontalOptions = LayoutOptions.Center) 
-                View.Button(text = "Reset", horizontalOptions = LayoutOptions.Center, command = (fun () -> dispatch Reset), canExecute = (model <> initModel))
-            ]))
+          content = View.StackLayout(padding = 20.0,
+            children = [
+                viewCurrentyPicker "source" FromChanged
+                viewCurrentyPicker "destination" ToChanged
+                View.Editor (
+                    text = model.amount,
+                    placeholder = "Enter amount",
+                    keyboard = Keyboard.Numeric,
+                    textChanged = (fun t -> dispatch (AmountChanged t.NewTextValue)))
+                View.Button (text = "Convert", command = fun () -> dispatch Convert)
+                View.Label(text = model.convertedAmount) ]))
 
-    // Note, this declaration is needed if you enable LiveUpdate
     let program = Program.mkProgram init update view
 
-type App () as app = 
-    inherit Application ()
+type App() as app =
+    inherit Application()
 
-    let runner = 
+    let runner =
         App.program
-#if DEBUG
         |> Program.withConsoleTrace
-#endif
         |> XamarinFormsProgram.run app
 
-#if DEBUG
-    // Uncomment this line to enable live update in debug mode. 
-    // See https://fsprojects.github.io/Fabulous/tools.html for further  instructions.
-    //
-    //do runner.EnableLiveUpdate()
-#endif    
-
-    // Uncomment this code to save the application state to app.Properties using Newtonsoft.Json
-    // See https://fsprojects.github.io/Fabulous/models.html for further  instructions.
-#if APPSAVE
     let modelId = "model"
-    override __.OnSleep() = 
-
+    override __.OnSleep() =
         let json = Newtonsoft.Json.JsonConvert.SerializeObject(runner.CurrentModel)
-        Console.WriteLine("OnSleep: saving model into app.Properties, json = {0}", json)
-
         app.Properties.[modelId] <- json
-
-    override __.OnResume() = 
-        Console.WriteLine "OnResume: checking for model in app.Properties"
-        try 
+    override __.OnResume() =
+        try
             match app.Properties.TryGetValue modelId with
-            | true, (:? string as json) -> 
-
-                Console.WriteLine("OnResume: restoring model from app.Properties, json = {0}", json)
+            | true, (:? string as json) ->
                 let model = Newtonsoft.Json.JsonConvert.DeserializeObject<App.Model>(json)
-
-                Console.WriteLine("OnResume: restoring model from app.Properties, model = {0}", (sprintf "%0A" model))
-                runner.SetCurrentModel (model, Cmd.none)
-
+                runner.SetCurrentModel(model, Cmd.none)
             | _ -> ()
-        with ex -> 
-            App.program.onError("Error while restoring model found in app.Properties", ex)
-
-    override this.OnStart() = 
-        Console.WriteLine "OnStart: using same logic as OnResume()"
-        this.OnResume()
-#endif
-
-
+        with ex ->
+            App.program.onError ("Error while restoring model found in app.Properties", ex)
+    override this.OnStart() = this.OnResume()
