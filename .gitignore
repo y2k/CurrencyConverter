@@ -1,0 +1,7 @@
+.ionide/
+
+.nuget/
+packages/
+
+bin/
+obj/
