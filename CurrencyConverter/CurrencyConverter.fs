@@ -5,17 +5,17 @@ open Fabulous.XamarinForms
 open Xamarin.Forms
 
 module App =
-    type Currencies = FSharp.Data.XmlProvider<"http://www.cbr.ru/scripts/XML_daily.asp", Encoding="1251">
+    type Api = FSharp.Data.XmlProvider<"http://www.cbr.ru/scripts/XML_daily.asp", Encoding="1251">
 
     type Model =
-      { currencies : Currencies.Valute []
-        fromCurrency : Currencies.Valute option
-        toCurrency : Currencies.Valute option
+      { currencies : Api.Valute []
+        fromCurrency : Api.Valute option
+        toCurrency : Api.Valute option
         amount : string
         convertedAmount : string }
 
     type Msg =
-        | GetCurrencies of Choice<Currencies.ValCurs, exn>
+        | GetCurrencies of Choice<Api.ValCurs, exn>
         | FromChanged of int
         | ToChanged of int
         | AmountChanged of string
@@ -23,7 +23,7 @@ module App =
 
     let init() =
         { currencies = [||]; fromCurrency = None; toCurrency = None; amount = ""; convertedAmount = "" },
-        Currencies.AsyncLoad("http://www.cbr.ru/scripts/XML_daily.asp") |> (Async.Catch >> Cmd.ofAsyncMsg >> Cmd.map GetCurrencies)
+        Api.AsyncLoad("http://www.cbr.ru/scripts/XML_daily.asp") |> (Async.Catch >> Cmd.ofAsyncMsg >> Cmd.map GetCurrencies)
 
     let update msg model =
         match msg with
